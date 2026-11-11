@@ -1,0 +1,241 @@
+from abc import ABC, abstractmethod
+from datetime import datetime
+import tkinter as tk
+from tkinter import messagebox, simpledialog
+
+
+class SistemaSoftwareFJ:
+    def __init__(self):
+        self.clientes = []
+        self.servicios = []
+        self.reservas = []
+
+    def agregar_cliente(self, cliente):
+        if any(c.documento == cliente.documento for c in self.clientes):
+            raise ValueError("El cliente ya está registrado.")
+        self.clientes.append(cliente)
+
+    def agregar_servicio(self, servicio):
+        self.servicios.append(servicio)
+
+    def crear_reserva(self, cliente, servicio, fecha, hora):
+        if cliente not in self.clientes or servicio not in self.servicios:
+            raise ValueError("El cliente o el servicio no está registrado.")
+        reserva = Reserva(cliente, servicio, fecha, hora)
+        self.reservas.append(reserva)
+        return reserva
+
+
+class Cliente:
+    def __init__(self, identificacion, nombre, apellido, telefono, email):
+        if not identificacion.isdigit():
+            raise ValueError("La cédula debe contener solo números.")
+        if not nombre.strip() or not apellido.strip():
+            raise ValueError("El nombre y el apellido son obligatorios.")
+        if not telefono.isdigit():
+            raise ValueError("El teléfono debe contener solo números.")
+        if "@" not in email or "." not in email.split("@")[-1]:
+            raise ValueError("Ingrese un correo electrónico válido.")
+        self.__identificacion = identificacion.strip()
+        self.__nombre = nombre.strip()
+        self.__apellido = apellido.strip()
+        self.__telefono = telefono.strip()
+        self.__email = email.strip()
+
+    @property
+    def documento(self):
+        return self.__identificacion
+
+    @property
+    def nombre_completo(self):
+        return f"{self.__nombre} {self.__apellido}"
+
+
+class Servicio(ABC):
+    def __init__(self, nombre, precio, unidades=1):
+        if not nombre.strip():
+            raise ValueError("El nombre del servicio no puede estar vacío.")
+        if precio < 0 or unidades <= 0:
+            raise ValueError("El precio no puede ser negativo y las unidades deben ser mayores que cero.")
+        self.nombre = nombre.strip()
+        self.precio = precio
+        self.unidades = unidades
+
+    @abstractmethod
+    def calcular_precio(self):
+        pass
+
+
+class ReservaSalas(Servicio):
+    def calcular_precio(self):
+        return self.precio * self.unidades
+
+
+class AlquilerEquipos(Servicio):
+    def calcular_precio(self):
+        return self.precio * self.unidades
+
+
+class AsesoriasEspecializadas(Servicio):
+    def calcular_precio(self):
+        return self.precio * self.unidades
+
+
+class Reserva:
+    def __init__(self, cliente, servicio, fecha, hora):
+        self.cliente = cliente
+        self.servicio = servicio
+        self.fecha = fecha
+        self.hora = hora
+        self.estado = "pendiente"
+
+    def confirmar_reserva(self):
+        self.estado = "confirmada"
+
+    def calcular_precio_total(self):
+        return self.servicio.calcular_precio()
+
+    def mostrar_reserva(self):
+        return (
+            f"Cliente: {self.cliente.nombre_completo}\n"
+            f"Cédula: {self.cliente.documento}\n"
+            f"Servicio: {self.servicio.nombre}\n"
+            f"Fecha: {self.fecha}\n"
+            f"Hora: {self.hora}\n"
+            f"Estado: {self.estado}\n"
+            f"Precio total: ${self.calcular_precio_total():.2f}"
+        )
+
+
+class IngresoCancelado(Exception):
+    pass
+
+
+def pedir_dato(raiz, mensaje, validar):
+    while True:
+        valor = simpledialog.askstring("Registro", mensaje, parent=raiz)
+        if valor is None:
+            raise IngresoCancelado
+        valor = valor.strip()
+        try:
+            validar(valor)
+            return valor
+        except ValueError as error:
+            messagebox.showerror("Dato incorrecto", str(error), parent=raiz)
+
+
+def validar_texto(valor):
+    if not valor:
+        raise ValueError("Este campo es obligatorio.")
+
+
+def validar_cedula(valor, sistema):
+    if not valor.isdigit():
+        raise ValueError("La cédula debe contener solo números.")
+    if any(c.documento == valor for c in sistema.clientes):
+        raise ValueError("Esta cédula ya está registrada. Ingrese otra.")
+
+
+def validar_telefono(valor):
+    if not valor.isdigit():
+        raise ValueError("El teléfono debe contener solo números.")
+
+
+def validar_email(valor):
+    if "@" not in valor or "." not in valor.split("@")[-1]:
+        raise ValueError("Ingrese un correo electrónico válido.")
+
+
+def validar_opcion(valor):
+    if valor not in ("1", "2", "3"):
+        raise ValueError("Seleccione una opción válida: 1, 2 o 3.")
+
+
+def validar_precio(valor):
+    try:
+        precio = float(valor.replace(",", "."))
+    except ValueError:
+        raise ValueError("Ingrese un precio numérico válido.") from None
+    if precio < 0:
+        raise ValueError("El precio no puede ser negativo.")
+
+
+def validar_unidades(valor):
+    try:
+        unidades = int(valor)
+    except ValueError:
+        raise ValueError("Ingrese un número entero válido.") from None
+    if unidades <= 0:
+        raise ValueError("Las unidades deben ser mayores que cero.")
+
+
+def validar_fecha(valor):
+    try:
+        datetime.strptime(valor, "%d/%m/%Y")
+    except ValueError:
+        raise ValueError("Fecha no válida. Use el formato DD/MM/AAAA.") from None
+
+
+def validar_hora(valor):
+    try:
+        datetime.strptime(valor, "%H:%M")
+    except ValueError:
+        raise ValueError("Hora no válida. Use el formato HH:MM, por ejemplo 14:30.") from None
+
+
+def ejecutar_sistema():
+    raiz = tk.Tk()
+    raiz.withdraw()
+    sistema = SistemaSoftwareFJ()
+    try:
+        messagebox.showinfo(
+            "Sistema Software FJ",
+            "Sistema Integral de Gestión de Clientes, Servicios y Reservas - Software FJ",
+            parent=raiz,
+        )
+        nombre = pedir_dato(raiz, "Nombre:", validar_texto)
+        apellido = pedir_dato(raiz, "Apellido:", validar_texto)
+        identificacion = pedir_dato(
+            raiz,
+            "Identificación (documento de cédula, solo números):",
+            lambda valor: validar_cedula(valor, sistema),
+        )
+        telefono = pedir_dato(raiz, "Teléfono (solo números):", validar_telefono)
+        email = pedir_dato(raiz, "Correo electrónico:", validar_email)
+        cliente = Cliente(identificacion, nombre, apellido, telefono, email)
+        sistema.agregar_cliente(cliente)
+
+        tipos_servicio = {
+            "1": ("Reserva de salas", ReservaSalas),
+            "2": ("Alquiler de equipos", AlquilerEquipos),
+            "3": ("Asesorías especializadas", AsesoriasEspecializadas),
+        }
+        opcion = pedir_dato(
+            raiz,
+            "Tipo de servicio:\n1) Reserva de salas\n2) Alquiler de equipos\n3) Asesorías",
+            validar_opcion,
+        )
+        nombre_tipo, clase_servicio = tipos_servicio[opcion]
+        nombre_servicio = pedir_dato(
+            raiz, f"Nombre del servicio ({nombre_tipo}):", validar_texto
+        )
+        precio = pedir_dato(raiz, "Precio por unidad:", validar_precio)
+        unidades = pedir_dato(raiz, "Cantidad de unidades:", validar_unidades)
+        servicio = clase_servicio(
+            nombre_servicio, float(precio.replace(",", ".")), int(unidades)
+        )
+        sistema.agregar_servicio(servicio)
+
+        fecha = pedir_dato(raiz, "Fecha de la reserva (DD/MM/AAAA):", validar_fecha)
+        hora = pedir_dato(raiz, "Hora de la reserva (HH:MM):", validar_hora)
+        reserva = sistema.crear_reserva(cliente, servicio, fecha, hora)
+        reserva.confirmar_reserva()
+        messagebox.showinfo("Reserva creada", reserva.mostrar_reserva(), parent=raiz)
+    except IngresoCancelado:
+        messagebox.showinfo("Cancelado", "Ingreso cancelado por el usuario.", parent=raiz)
+    finally:
+        raiz.destroy()
+
+
+if __name__ == "__main__":
+    ejecutar_sistema()
