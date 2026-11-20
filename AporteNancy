@@ -5,7 +5,7 @@ from tkinter import messagebox, simpledialog
 import logging
 
 # ==========================================
-# CONFIGURACIÓN DEL SISTEMA DE LOGS
+# CONFIGURACIÓN DE LOGS
 # ==========================================
 logging.basicConfig(
     filename="sistema_fj.log",
@@ -15,56 +15,96 @@ logging.basicConfig(
 
 
 class SistemaSoftwareFJ:
+
     def __init__(self):
         self.clientes = []
         self.servicios = []
         self.reservas = []
 
     def agregar_cliente(self, cliente):
+
         if any(c.documento == cliente.documento for c in self.clientes):
+
             logging.warning(
-                f"Intento de registrar cliente duplicado: {cliente.documento}"
+                f"Intento de registro duplicado: {cliente.documento}"
             )
-            raise ValueError("El cliente ya está registrado.")
+
+            raise ValueError(
+                "El cliente ya está registrado."
+            )
 
         self.clientes.append(cliente)
 
         logging.info(
-            f"Cliente registrado: {cliente.nombre_completo} "
-            f"- Documento: {cliente.documento}"
+            f"Cliente registrado: {cliente.nombre_completo}"
         )
 
     def agregar_servicio(self, servicio):
+
         self.servicios.append(servicio)
 
         logging.info(
-            f"Servicio agregado: {servicio.nombre} "
-            f"- Precio: {servicio.precio}"
+            f"Servicio agregado: {servicio.nombre}"
         )
 
     def crear_reserva(self, cliente, servicio, fecha, hora):
-        if cliente not in self.clientes or servicio not in self.servicios:
+
+        try:
+
+            if cliente not in self.clientes:
+                raise ReservaInvalidaError(
+                    "Cliente no registrado."
+                )
+
+            if servicio not in self.servicios:
+                raise ReservaInvalidaError(
+                    "Servicio no registrado."
+                )
+
+            reserva = Reserva(
+                cliente,
+                servicio,
+                fecha,
+                hora
+            )
+
+        except ReservaInvalidaError as e:
+
             logging.error(
-                "Intento de crear reserva con cliente o servicio no registrado."
-            )
-            raise ValueError(
-                "El cliente o el servicio no está registrado."
+                f"Error al crear reserva: {str(e)}"
             )
 
-        reserva = Reserva(cliente, servicio, fecha, hora)
-        self.reservas.append(reserva)
+            raise ReservaInvalidaError(
+                "No fue posible crear la reserva."
+            ) from e
 
-        logging.info(
-            f"Reserva creada para {cliente.nombre_completo} "
-            f"Servicio: {servicio.nombre} "
-            f"Fecha: {fecha} Hora: {hora}"
-        )
+        else:
 
-        return reserva
+            self.reservas.append(reserva)
+
+            logging.info(
+                f"Reserva creada para {cliente.nombre_completo}"
+            )
+
+            return reserva
+
+        finally:
+
+            logging.info(
+                "Finalizó el proceso de creación de reserva."
+            )
 
 
 class Cliente:
-    def __init__(self, identificacion, nombre, apellido, telefono, email):
+
+    def __init__(
+        self,
+        identificacion,
+        nombre,
+        apellido,
+        telefono,
+        email,
+    ):
 
         if not identificacion.isdigit():
             raise ValueError(
@@ -102,6 +142,7 @@ class Cliente:
 
 
 class Servicio(ABC):
+
     def __init__(self, nombre, precio, unidades=1):
 
         if not nombre.strip():
@@ -124,22 +165,32 @@ class Servicio(ABC):
 
 
 class ReservaSalas(Servicio):
+
     def calcular_precio(self):
         return self.precio * self.unidades
 
 
 class AlquilerEquipos(Servicio):
+
     def calcular_precio(self):
         return self.precio * self.unidades
 
 
 class AsesoriasEspecializadas(Servicio):
+
     def calcular_precio(self):
         return self.precio * self.unidades
 
 
 class Reserva:
-    def __init__(self, cliente, servicio, fecha, hora):
+
+    def __init__(
+        self,
+        cliente,
+        servicio,
+        fecha,
+        hora,
+    ):
         self.cliente = cliente
         self.servicio = servicio
         self.fecha = fecha
@@ -147,18 +198,26 @@ class Reserva:
         self.estado = "pendiente"
 
     def confirmar_reserva(self):
+
         self.estado = "confirmada"
 
         logging.info(
-            f"Reserva confirmada para "
-            f"{self.cliente.nombre_completo} "
-            f"Servicio: {self.servicio.nombre}"
+            f"Reserva confirmada para {self.cliente.nombre_completo}"
+        )
+
+    def cancelar_reserva(self):
+
+        self.estado = "cancelada"
+
+        logging.warning(
+            f"Reserva cancelada para {self.cliente.nombre_completo}"
         )
 
     def calcular_precio_total(self):
         return self.servicio.calcular_precio()
 
     def mostrar_reserva(self):
+
         return (
             f"Cliente: {self.cliente.nombre_completo}\n"
             f"Cédula: {self.cliente.documento}\n"
@@ -174,7 +233,15 @@ class IngresoCancelado(Exception):
     pass
 
 
-def pedir_dato(raiz, mensaje, validar):
+class ReservaInvalidaError(Exception):
+    pass
+
+
+def pedir_dato(
+    raiz,
+    mensaje,
+    validar
+):
 
     while True:
 
@@ -190,12 +257,19 @@ def pedir_dato(raiz, mensaje, validar):
         valor = valor.strip()
 
         try:
+
             validar(valor)
+
+            logging.info(
+                f"Dato validado correctamente: {mensaje}"
+            )
+
             return valor
 
         except ValueError as error:
+
             logging.warning(
-                f"Validación incorrecta: {str(error)}"
+                f"Error de validación: {str(error)}"
             )
 
             messagebox.showerror(
@@ -206,8 +280,11 @@ def pedir_dato(raiz, mensaje, validar):
 
 
 def validar_texto(valor):
+
     if not valor:
-        raise ValueError("Este campo es obligatorio.")
+        raise ValueError(
+            "Este campo es obligatorio."
+        )
 
 
 def validar_cedula(valor, sistema):
@@ -219,11 +296,12 @@ def validar_cedula(valor, sistema):
 
     if any(c.documento == valor for c in sistema.clientes):
         raise ValueError(
-            "Esta cédula ya está registrada. Ingrese otra."
+            "Esta cédula ya está registrada."
         )
 
 
 def validar_telefono(valor):
+
     if not valor.isdigit():
         raise ValueError(
             "El teléfono debe contener solo números."
@@ -231,6 +309,7 @@ def validar_telefono(valor):
 
 
 def validar_email(valor):
+
     if "@" not in valor or "." not in valor.split("@")[-1]:
         raise ValueError(
             "Ingrese un correo electrónico válido."
@@ -238,23 +317,27 @@ def validar_email(valor):
 
 
 def validar_opcion(valor):
+
     if valor not in ("1", "2", "3"):
         raise ValueError(
-            "Seleccione una opción válida: 1, 2 o 3."
+            "Seleccione una opción válida."
         )
 
 
 def validar_precio(valor):
 
     try:
+
         precio = float(valor.replace(",", "."))
 
-    except ValueError:
+    except ValueError as e:
+
         raise ValueError(
             "Ingrese un precio numérico válido."
-        ) from None
+        ) from e
 
     if precio < 0:
+
         raise ValueError(
             "El precio no puede ser negativo."
         )
@@ -263,14 +346,17 @@ def validar_precio(valor):
 def validar_unidades(valor):
 
     try:
+
         unidades = int(valor)
 
-    except ValueError:
+    except ValueError as e:
+
         raise ValueError(
             "Ingrese un número entero válido."
-        ) from None
+        ) from e
 
     if unidades <= 0:
+
         raise ValueError(
             "Las unidades deben ser mayores que cero."
         )
@@ -283,7 +369,7 @@ def validar_fecha(valor):
 
     except ValueError:
         raise ValueError(
-            "Fecha no válida. Use el formato DD/MM/AAAA."
+            "Fecha no válida. Use DD/MM/AAAA."
         ) from None
 
 
@@ -294,7 +380,7 @@ def validar_hora(valor):
 
     except ValueError:
         raise ValueError(
-            "Hora no válida. Use el formato HH:MM, por ejemplo 14:30."
+            "Hora no válida. Use HH:MM."
         ) from None
 
 
@@ -307,7 +393,9 @@ def ejecutar_sistema():
 
     try:
 
-        logging.info("Inicio del sistema Software FJ")
+        logging.info(
+            "Inicio del sistema Software FJ"
+        )
 
         messagebox.showinfo(
             "Sistema Software FJ",
@@ -318,31 +406,34 @@ def ejecutar_sistema():
         nombre = pedir_dato(
             raiz,
             "Nombre:",
-            validar_texto
+            validar_texto,
         )
 
         apellido = pedir_dato(
             raiz,
             "Apellido:",
-            validar_texto
+            validar_texto,
         )
 
         identificacion = pedir_dato(
             raiz,
-            "Identificación (documento de cédula, solo números):",
-            lambda valor: validar_cedula(valor, sistema),
+            "Identificación (solo números):",
+            lambda valor: validar_cedula(
+                valor,
+                sistema
+            ),
         )
 
         telefono = pedir_dato(
             raiz,
-            "Teléfono (solo números):",
-            validar_telefono
+            "Teléfono:",
+            validar_telefono,
         )
 
         email = pedir_dato(
             raiz,
             "Correo electrónico:",
-            validar_email
+            validar_email,
         )
 
         cliente = Cliente(
@@ -350,15 +441,24 @@ def ejecutar_sistema():
             nombre,
             apellido,
             telefono,
-            email
+            email,
         )
 
         sistema.agregar_cliente(cliente)
 
         tipos_servicio = {
-            "1": ("Reserva de salas", ReservaSalas),
-            "2": ("Alquiler de equipos", AlquilerEquipos),
-            "3": ("Asesorías especializadas", AsesoriasEspecializadas),
+            "1": (
+                "Reserva de salas",
+                ReservaSalas
+            ),
+            "2": (
+                "Alquiler de equipos",
+                AlquilerEquipos
+            ),
+            "3": (
+                "Asesorías especializadas",
+                AsesoriasEspecializadas
+            ),
         }
 
         opcion = pedir_dato(
@@ -375,19 +475,19 @@ def ejecutar_sistema():
         nombre_servicio = pedir_dato(
             raiz,
             f"Nombre del servicio ({nombre_tipo}):",
-            validar_texto
+            validar_texto,
         )
 
         precio = pedir_dato(
             raiz,
             "Precio por unidad:",
-            validar_precio
+            validar_precio,
         )
 
         unidades = pedir_dato(
             raiz,
             "Cantidad de unidades:",
-            validar_unidades
+            validar_unidades,
         )
 
         servicio = clase_servicio(
@@ -401,28 +501,45 @@ def ejecutar_sistema():
         fecha = pedir_dato(
             raiz,
             "Fecha de la reserva (DD/MM/AAAA):",
-            validar_fecha
+            validar_fecha,
         )
 
         hora = pedir_dato(
             raiz,
             "Hora de la reserva (HH:MM):",
-            validar_hora
+            validar_hora,
         )
 
-        reserva = sistema.crear_reserva(
-            cliente,
-            servicio,
-            fecha,
-            hora,
-        )
+        try:
 
-        reserva.confirmar_reserva()
+            reserva = sistema.crear_reserva(
+                cliente,
+                servicio,
+                fecha,
+                hora
+            )
 
-        logging.info(
-            f"Proceso completado exitosamente para "
-            f"{cliente.nombre_completo}"
-        )
+        except ReservaInvalidaError as e:
+
+            logging.error(
+                f"Fallo al crear reserva: {str(e)}"
+            )
+
+            raise
+
+        else:
+
+            reserva.confirmar_reserva()
+
+            logging.info(
+                "Reserva creada exitosamente."
+            )
+
+        finally:
+
+            logging.info(
+                "Proceso de reserva finalizado."
+            )
 
         messagebox.showinfo(
             "Reserva creada",
