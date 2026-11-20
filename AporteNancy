@@ -2,6 +2,17 @@ from abc import ABC, abstractmethod
 from datetime import datetime
 import tkinter as tk
 from tkinter import messagebox, simpledialog
+import logging
+# ==========================================
+# CONFIGURACION DEL SISTEMA DE LOGS
+# ==========================================
+
+logging.basicConfig(
+    filename="registro_sistema.log",
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    encoding="utf-8"
+)
 
 
 class SistemaSoftwareFJ:
@@ -11,20 +22,61 @@ class SistemaSoftwareFJ:
         self.reservas = []
 
     def agregar_cliente(self, cliente):
-        if any(c.documento == cliente.documento for c in self.clientes):
-            raise ValueError("El cliente ya está registrado.")
-        self.clientes.append(cliente)
 
-    def agregar_servicio(self, servicio):
-        self.servicios.append(servicio)
+    if any(c.documento == cliente.documento for c in self.clientes):
 
-    def crear_reserva(self, cliente, servicio, fecha, hora):
-        if cliente not in self.clientes or servicio not in self.servicios:
-            raise ValueError("El cliente o el servicio no está registrado.")
-        reserva = Reserva(cliente, servicio, fecha, hora)
-        self.reservas.append(reserva)
-        return reserva
+        logging.error(
+            f"Intento de registro duplicado: {cliente.documento}"
+        )
 
+        raise ValueError(
+            "El cliente ya está registrado."
+        )
+
+    self.clientes.append(cliente)
+
+    logging.info(
+        f"Cliente registrado: "
+        f"{cliente.nombre_completo} "
+        f"({cliente.documento})"
+    )
+
+   def agregar_servicio(self, servicio):
+
+    self.servicios.append(servicio)
+
+    logging.info(
+        f"Servicio agregado: {servicio.nombre}"
+    )
+
+  def crear_reserva(self, cliente, servicio, fecha, hora):
+
+    if cliente not in self.clientes or servicio not in self.servicios:
+
+        logging.error(
+            "Intento de crear reserva con datos no registrados"
+        )
+
+        raise ValueError(
+            "El cliente o el servicio no está registrado."
+        )
+
+    reserva = Reserva(
+        cliente,
+        servicio,
+        fecha,
+        hora
+    )
+
+    self.reservas.append(reserva)
+
+    logging.info(
+        f"Reserva creada para "
+        f"{cliente.nombre_completo} - "
+        f"{fecha} {hora}"
+    )
+
+    return reserva
 
 class Cliente:
     def __init__(self, identificacion, nombre, apellido, telefono, email):
@@ -89,8 +141,23 @@ class Reserva:
         self.hora = hora
         self.estado = "pendiente"
 
-    def confirmar_reserva(self):
-        self.estado = "confirmada"
+ def confirmar_reserva(self):
+
+    self.estado = "confirmada"
+
+    logging.info(
+        f"Reserva confirmada para "
+        f"{self.cliente.nombre_completo}"
+    )
+
+def cancelar_reserva(self):
+
+    self.estado = "cancelada"
+
+    logging.warning(
+        f"Reserva cancelada para "
+        f"{self.cliente.nombre_completo}"
+    )
 
     def calcular_precio_total(self):
         return self.servicio.calcular_precio()
@@ -187,6 +254,10 @@ def ejecutar_sistema():
     raiz = tk.Tk()
     raiz.withdraw()
     sistema = SistemaSoftwareFJ()
+
+    logging.info(
+        "Inicio del Sistema Software FJ"
+    )
     try:
         messagebox.showinfo(
             "Sistema Software FJ",
@@ -232,9 +303,35 @@ def ejecutar_sistema():
         reserva.confirmar_reserva()
         messagebox.showinfo("Reserva creada", reserva.mostrar_reserva(), parent=raiz)
     except IngresoCancelado:
-        messagebox.showinfo("Cancelado", "Ingreso cancelado por el usuario.", parent=raiz)
-    finally:
-        raiz.destroy()
+
+    logging.warning(
+        "Proceso cancelado por el usuario"
+    )
+
+    messagebox.showinfo(
+        "Cancelado",
+        "Ingreso cancelado por el usuario.",
+        parent=raiz
+    )
+
+except Exception as error:
+
+    logging.exception(
+        f"Error inesperado: {error}"
+    )
+
+    messagebox.showerror(
+        "Error",
+        f"Ocurrió un error:\n{error}",
+        parent=raiz
+    )
+  finally:
+
+    logging.info(
+        "Fin de ejecución del sistema"
+    )
+
+    raiz.destroy()
 
 
 if __name__ == "__main__":
