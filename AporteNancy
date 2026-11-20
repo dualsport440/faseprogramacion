@@ -3,15 +3,14 @@ from datetime import datetime
 import tkinter as tk
 from tkinter import messagebox, simpledialog
 import logging
-# ==========================================
-# CONFIGURACION DEL SISTEMA DE LOGS
-# ==========================================
 
+# ==========================================
+# CONFIGURACIÓN DEL SISTEMA DE LOGS
+# ==========================================
 logging.basicConfig(
-    filename="registro_sistema.log",
+    filename="sistema_fj.log",
     level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(message)s",
-    encoding="utf-8"
+    format="%(asctime)s - %(levelname)s - %(message)s"
 )
 
 
@@ -22,72 +21,71 @@ class SistemaSoftwareFJ:
         self.reservas = []
 
     def agregar_cliente(self, cliente):
+        if any(c.documento == cliente.documento for c in self.clientes):
+            logging.warning(
+                f"Intento de registrar cliente duplicado: {cliente.documento}"
+            )
+            raise ValueError("El cliente ya está registrado.")
 
-    if any(c.documento == cliente.documento for c in self.clientes):
+        self.clientes.append(cliente)
 
-        logging.error(
-            f"Intento de registro duplicado: {cliente.documento}"
+        logging.info(
+            f"Cliente registrado: {cliente.nombre_completo} "
+            f"- Documento: {cliente.documento}"
         )
 
-        raise ValueError(
-            "El cliente ya está registrado."
+    def agregar_servicio(self, servicio):
+        self.servicios.append(servicio)
+
+        logging.info(
+            f"Servicio agregado: {servicio.nombre} "
+            f"- Precio: {servicio.precio}"
         )
 
-    self.clientes.append(cliente)
+    def crear_reserva(self, cliente, servicio, fecha, hora):
+        if cliente not in self.clientes or servicio not in self.servicios:
+            logging.error(
+                "Intento de crear reserva con cliente o servicio no registrado."
+            )
+            raise ValueError(
+                "El cliente o el servicio no está registrado."
+            )
 
-    logging.info(
-        f"Cliente registrado: "
-        f"{cliente.nombre_completo} "
-        f"({cliente.documento})"
-    )
+        reserva = Reserva(cliente, servicio, fecha, hora)
+        self.reservas.append(reserva)
 
-   def agregar_servicio(self, servicio):
-
-    self.servicios.append(servicio)
-
-    logging.info(
-        f"Servicio agregado: {servicio.nombre}"
-    )
-
-  def crear_reserva(self, cliente, servicio, fecha, hora):
-
-    if cliente not in self.clientes or servicio not in self.servicios:
-
-        logging.error(
-            "Intento de crear reserva con datos no registrados"
+        logging.info(
+            f"Reserva creada para {cliente.nombre_completo} "
+            f"Servicio: {servicio.nombre} "
+            f"Fecha: {fecha} Hora: {hora}"
         )
 
-        raise ValueError(
-            "El cliente o el servicio no está registrado."
-        )
+        return reserva
 
-    reserva = Reserva(
-        cliente,
-        servicio,
-        fecha,
-        hora
-    )
-
-    self.reservas.append(reserva)
-
-    logging.info(
-        f"Reserva creada para "
-        f"{cliente.nombre_completo} - "
-        f"{fecha} {hora}"
-    )
-
-    return reserva
 
 class Cliente:
     def __init__(self, identificacion, nombre, apellido, telefono, email):
+
         if not identificacion.isdigit():
-            raise ValueError("La cédula debe contener solo números.")
+            raise ValueError(
+                "La cédula debe contener solo números."
+            )
+
         if not nombre.strip() or not apellido.strip():
-            raise ValueError("El nombre y el apellido son obligatorios.")
+            raise ValueError(
+                "El nombre y el apellido son obligatorios."
+            )
+
         if not telefono.isdigit():
-            raise ValueError("El teléfono debe contener solo números.")
+            raise ValueError(
+                "El teléfono debe contener solo números."
+            )
+
         if "@" not in email or "." not in email.split("@")[-1]:
-            raise ValueError("Ingrese un correo electrónico válido.")
+            raise ValueError(
+                "Ingrese un correo electrónico válido."
+            )
+
         self.__identificacion = identificacion.strip()
         self.__nombre = nombre.strip()
         self.__apellido = apellido.strip()
@@ -105,10 +103,17 @@ class Cliente:
 
 class Servicio(ABC):
     def __init__(self, nombre, precio, unidades=1):
+
         if not nombre.strip():
-            raise ValueError("El nombre del servicio no puede estar vacío.")
+            raise ValueError(
+                "El nombre del servicio no puede estar vacío."
+            )
+
         if precio < 0 or unidades <= 0:
-            raise ValueError("El precio no puede ser negativo y las unidades deben ser mayores que cero.")
+            raise ValueError(
+                "El precio no puede ser negativo y las unidades deben ser mayores que cero."
+            )
+
         self.nombre = nombre.strip()
         self.precio = precio
         self.unidades = unidades
@@ -141,23 +146,14 @@ class Reserva:
         self.hora = hora
         self.estado = "pendiente"
 
- def confirmar_reserva(self):
+    def confirmar_reserva(self):
+        self.estado = "confirmada"
 
-    self.estado = "confirmada"
-
-    logging.info(
-        f"Reserva confirmada para "
-        f"{self.cliente.nombre_completo}"
-    )
-
-def cancelar_reserva(self):
-
-    self.estado = "cancelada"
-
-    logging.warning(
-        f"Reserva cancelada para "
-        f"{self.cliente.nombre_completo}"
-    )
+        logging.info(
+            f"Reserva confirmada para "
+            f"{self.cliente.nombre_completo} "
+            f"Servicio: {self.servicio.nombre}"
+        )
 
     def calcular_precio_total(self):
         return self.servicio.calcular_precio()
@@ -179,16 +175,34 @@ class IngresoCancelado(Exception):
 
 
 def pedir_dato(raiz, mensaje, validar):
+
     while True:
-        valor = simpledialog.askstring("Registro", mensaje, parent=raiz)
+
+        valor = simpledialog.askstring(
+            "Registro",
+            mensaje,
+            parent=raiz
+        )
+
         if valor is None:
             raise IngresoCancelado
+
         valor = valor.strip()
+
         try:
             validar(valor)
             return valor
+
         except ValueError as error:
-            messagebox.showerror("Dato incorrecto", str(error), parent=raiz)
+            logging.warning(
+                f"Validación incorrecta: {str(error)}"
+            )
+
+            messagebox.showerror(
+                "Dato incorrecto",
+                str(error),
+                parent=raiz
+            )
 
 
 def validar_texto(valor):
@@ -197,83 +211,148 @@ def validar_texto(valor):
 
 
 def validar_cedula(valor, sistema):
+
     if not valor.isdigit():
-        raise ValueError("La cédula debe contener solo números.")
+        raise ValueError(
+            "La cédula debe contener solo números."
+        )
+
     if any(c.documento == valor for c in sistema.clientes):
-        raise ValueError("Esta cédula ya está registrada. Ingrese otra.")
+        raise ValueError(
+            "Esta cédula ya está registrada. Ingrese otra."
+        )
 
 
 def validar_telefono(valor):
     if not valor.isdigit():
-        raise ValueError("El teléfono debe contener solo números.")
+        raise ValueError(
+            "El teléfono debe contener solo números."
+        )
 
 
 def validar_email(valor):
     if "@" not in valor or "." not in valor.split("@")[-1]:
-        raise ValueError("Ingrese un correo electrónico válido.")
+        raise ValueError(
+            "Ingrese un correo electrónico válido."
+        )
 
 
 def validar_opcion(valor):
     if valor not in ("1", "2", "3"):
-        raise ValueError("Seleccione una opción válida: 1, 2 o 3.")
+        raise ValueError(
+            "Seleccione una opción válida: 1, 2 o 3."
+        )
 
 
 def validar_precio(valor):
+
     try:
         precio = float(valor.replace(",", "."))
+
     except ValueError:
-        raise ValueError("Ingrese un precio numérico válido.") from None
+        raise ValueError(
+            "Ingrese un precio numérico válido."
+        ) from None
+
     if precio < 0:
-        raise ValueError("El precio no puede ser negativo.")
+        raise ValueError(
+            "El precio no puede ser negativo."
+        )
 
 
 def validar_unidades(valor):
+
     try:
         unidades = int(valor)
+
     except ValueError:
-        raise ValueError("Ingrese un número entero válido.") from None
+        raise ValueError(
+            "Ingrese un número entero válido."
+        ) from None
+
     if unidades <= 0:
-        raise ValueError("Las unidades deben ser mayores que cero.")
+        raise ValueError(
+            "Las unidades deben ser mayores que cero."
+        )
 
 
 def validar_fecha(valor):
+
     try:
         datetime.strptime(valor, "%d/%m/%Y")
+
     except ValueError:
-        raise ValueError("Fecha no válida. Use el formato DD/MM/AAAA.") from None
+        raise ValueError(
+            "Fecha no válida. Use el formato DD/MM/AAAA."
+        ) from None
 
 
 def validar_hora(valor):
+
     try:
         datetime.strptime(valor, "%H:%M")
+
     except ValueError:
-        raise ValueError("Hora no válida. Use el formato HH:MM, por ejemplo 14:30.") from None
+        raise ValueError(
+            "Hora no válida. Use el formato HH:MM, por ejemplo 14:30."
+        ) from None
 
 
 def ejecutar_sistema():
+
     raiz = tk.Tk()
     raiz.withdraw()
+
     sistema = SistemaSoftwareFJ()
 
-    logging.info(
-        "Inicio del Sistema Software FJ"
-    )
     try:
+
+        logging.info("Inicio del sistema Software FJ")
+
         messagebox.showinfo(
             "Sistema Software FJ",
             "Sistema Integral de Gestión de Clientes, Servicios y Reservas - Software FJ",
             parent=raiz,
         )
-        nombre = pedir_dato(raiz, "Nombre:", validar_texto)
-        apellido = pedir_dato(raiz, "Apellido:", validar_texto)
+
+        nombre = pedir_dato(
+            raiz,
+            "Nombre:",
+            validar_texto
+        )
+
+        apellido = pedir_dato(
+            raiz,
+            "Apellido:",
+            validar_texto
+        )
+
         identificacion = pedir_dato(
             raiz,
             "Identificación (documento de cédula, solo números):",
             lambda valor: validar_cedula(valor, sistema),
         )
-        telefono = pedir_dato(raiz, "Teléfono (solo números):", validar_telefono)
-        email = pedir_dato(raiz, "Correo electrónico:", validar_email)
-        cliente = Cliente(identificacion, nombre, apellido, telefono, email)
+
+        telefono = pedir_dato(
+            raiz,
+            "Teléfono (solo números):",
+            validar_telefono
+        )
+
+        email = pedir_dato(
+            raiz,
+            "Correo electrónico:",
+            validar_email
+        )
+
+        cliente = Cliente(
+            identificacion,
+            nombre,
+            apellido,
+            telefono,
+            email
+        )
+
         sistema.agregar_cliente(cliente)
 
         tipos_servicio = {
@@ -281,57 +360,107 @@ def ejecutar_sistema():
             "2": ("Alquiler de equipos", AlquilerEquipos),
             "3": ("Asesorías especializadas", AsesoriasEspecializadas),
         }
+
         opcion = pedir_dato(
             raiz,
-            "Tipo de servicio:\n1) Reserva de salas\n2) Alquiler de equipos\n3) Asesorías",
+            "Tipo de servicio:\n"
+            "1) Reserva de salas\n"
+            "2) Alquiler de equipos\n"
+            "3) Asesorías",
             validar_opcion,
         )
+
         nombre_tipo, clase_servicio = tipos_servicio[opcion]
+
         nombre_servicio = pedir_dato(
-            raiz, f"Nombre del servicio ({nombre_tipo}):", validar_texto
+            raiz,
+            f"Nombre del servicio ({nombre_tipo}):",
+            validar_texto
         )
-        precio = pedir_dato(raiz, "Precio por unidad:", validar_precio)
-        unidades = pedir_dato(raiz, "Cantidad de unidades:", validar_unidades)
+
+        precio = pedir_dato(
+            raiz,
+            "Precio por unidad:",
+            validar_precio
+        )
+
+        unidades = pedir_dato(
+            raiz,
+            "Cantidad de unidades:",
+            validar_unidades
+        )
+
         servicio = clase_servicio(
-            nombre_servicio, float(precio.replace(",", ".")), int(unidades)
+            nombre_servicio,
+            float(precio.replace(",", ".")),
+            int(unidades),
         )
+
         sistema.agregar_servicio(servicio)
 
-        fecha = pedir_dato(raiz, "Fecha de la reserva (DD/MM/AAAA):", validar_fecha)
-        hora = pedir_dato(raiz, "Hora de la reserva (HH:MM):", validar_hora)
-        reserva = sistema.crear_reserva(cliente, servicio, fecha, hora)
+        fecha = pedir_dato(
+            raiz,
+            "Fecha de la reserva (DD/MM/AAAA):",
+            validar_fecha
+        )
+
+        hora = pedir_dato(
+            raiz,
+            "Hora de la reserva (HH:MM):",
+            validar_hora
+        )
+
+        reserva = sistema.crear_reserva(
+            cliente,
+            servicio,
+            fecha,
+            hora,
+        )
+
         reserva.confirmar_reserva()
-        messagebox.showinfo("Reserva creada", reserva.mostrar_reserva(), parent=raiz)
+
+        logging.info(
+            f"Proceso completado exitosamente para "
+            f"{cliente.nombre_completo}"
+        )
+
+        messagebox.showinfo(
+            "Reserva creada",
+            reserva.mostrar_reserva(),
+            parent=raiz,
+        )
+
     except IngresoCancelado:
 
-    logging.warning(
-        "Proceso cancelado por el usuario"
-    )
+        logging.warning(
+            "Ingreso cancelado por el usuario."
+        )
 
-    messagebox.showinfo(
-        "Cancelado",
-        "Ingreso cancelado por el usuario.",
-        parent=raiz
-    )
+        messagebox.showinfo(
+            "Cancelado",
+            "Ingreso cancelado por el usuario.",
+            parent=raiz,
+        )
 
-except Exception as error:
+    except Exception as e:
 
-    logging.exception(
-        f"Error inesperado: {error}"
-    )
+        logging.error(
+            f"Error inesperado: {str(e)}"
+        )
 
-    messagebox.showerror(
-        "Error",
-        f"Ocurrió un error:\n{error}",
-        parent=raiz
-    )
-  finally:
+        messagebox.showerror(
+            "Error",
+            f"Ocurrió un error inesperado:\n{str(e)}",
+            parent=raiz,
+        )
 
-    logging.info(
-        "Fin de ejecución del sistema"
-    )
+    finally:
 
-    raiz.destroy()
+        logging.info(
+            "Cierre del sistema Software FJ"
+        )
+
+        raiz.destroy()
 
 
 if __name__ == "__main__":
