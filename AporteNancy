@@ -1,3 +1,11 @@
+# ==========================================
+# SOFTWARE FJ
+# Sistema Integral de Gestión de Clientes, Servicios y Reservas.
+# ==========================================
+
+# ==========================================
+# LIBRERÍAS
+# ==========================================
 from abc import ABC, abstractmethod
 from datetime import datetime
 import tkinter as tk
@@ -6,6 +14,8 @@ import logging
 
 # ==========================================
 # CONFIGURACIÓN DE LOGS
+# Guarda en el archivo "sistema_fj.log" lo que va pasando en el programa
+# (INFO = normal, WARNING = aviso, ERROR = fallo).
 # ==========================================
 logging.basicConfig(
     filename="sistema_fj.log",
@@ -14,14 +24,25 @@ logging.basicConfig(
 )
 
 
+# ==========================================
+# CLASES DEL NEGOCIO
+# ==========================================
+
 class SistemaSoftwareFJ:
 
+    # Administrador general: guarda las listas de clientes, servicios
+    # y reservas, y evita registros repetidos o inexistentes.
+
     def __init__(self):
+
+        # Creacion de listas para guardar registros
         self.clientes = []
         self.servicios = []
         self.reservas = []
 
     def agregar_cliente(self, cliente):
+
+        # Registra un cliente. Lanza ValueError si la cédula ya existe.
 
         if any(c.documento == cliente.documento for c in self.clientes):
 
@@ -41,6 +62,8 @@ class SistemaSoftwareFJ:
 
     def agregar_servicio(self, servicio):
 
+        # Registra un servicio en la lista de servicios.
+
         self.servicios.append(servicio)
 
         logging.info(
@@ -48,6 +71,13 @@ class SistemaSoftwareFJ:
         )
 
     def crear_reserva(self, cliente, servicio, fecha, hora):
+
+        # Crea una reserva si el cliente y el servicio están registrados.
+        # Si alguno no existe lanza ReservaInvalidaError.
+        #   try     -> intenta crear la reserva
+        #   except  -> registra el error y lo vuelve a lanzar con un mensaje claro
+        #   else    -> si todo salió bien, guarda la reserva
+        #   finally -> siempre deja un registro en el log
 
         try:
 
@@ -97,6 +127,9 @@ class SistemaSoftwareFJ:
 
 class Cliente:
 
+    # Representa a una persona que reserva. Sus datos son privados
+    # y solo se leen mediante las propiedades documento y nombre_completo.
+
     def __init__(
         self,
         identificacion,
@@ -105,6 +138,8 @@ class Cliente:
         telefono,
         email,
     ):
+
+        # Validacion de los datos del cliente
 
         if not identificacion.isdigit():
             raise ValueError(
@@ -126,6 +161,8 @@ class Cliente:
                 "Ingrese un correo electrónico válido."
             )
 
+        # Uso de encapsulamiento para los atributos privados
+
         self.__identificacion = identificacion.strip()
         self.__nombre = nombre.strip()
         self.__apellido = apellido.strip()
@@ -134,16 +171,26 @@ class Cliente:
 
     @property
     def documento(self):
+
+        # Devuelve la cédula del cliente (solo lectura).
+
         return self.__identificacion
 
     @property
     def nombre_completo(self):
+
+        # Devuelve el nombre y el apellido juntos (solo lectura).
+
         return f"{self.__nombre} {self.__apellido}"
 
 
 class Servicio(ABC):
 
+    # CLASE ABSTRACTA: molde general de todos los servicios.
+
     def __init__(self, nombre, precio, unidades=1):
+
+        # Valida y guarda el nombre, el precio por unidad y las unidades.
 
         if not nombre.strip():
             raise ValueError(
@@ -160,29 +207,85 @@ class Servicio(ABC):
         self.unidades = unidades
 
     @abstractmethod
-    def calcular_precio(self):
+    def calcular_precio(self, descuento=0, impuesto=0):
+
+        # MÉTODO ABSTRACTO (el "hueco"): cada clase hija debe escribirlo.
+        # Parámetros opcionales (sobrecarga):
+        #   descuento: decimal entre 0 y 1 (0.10 = 10 %)
+        #   impuesto : decimal, por ejemplo 0.19 = 19 %
+
         pass
+
+    def _validar_porcentajes(self, descuento, impuesto):
+
+        # Método de apoyo para las hijas. Revisa que el descuento esté
+        # entre 0 y 1 y que el impuesto no sea negativo; de lo contrario
+        # lanza ValueError.
+
+        if not 0 <= descuento <= 1:
+            raise ValueError(
+                "El debe estar entre 0 y 1 (ej: 0.10 = 10%)."
+            )
+        if impuesto < 0:
+            raise ValueError(
+                "El impuesto no debe ser negativo"
+            )
 
 
 class ReservaSalas(Servicio):
 
-    def calcular_precio(self):
-        return self.precio * self.unidades
+    # Servicio de reserva de salas. Sin impuesto por defecto.
+
+    def calcular_precio(self, descuento=0, impuesto=0):
+
+        # Precio = (precio x unidades) menos descuento, más impuesto.
+
+        self._validar_porcentajes(descuento, impuesto)
+
+        total = self.precio * self.unidades
+        total -= total * descuento
+        return total + total * impuesto
 
 
 class AlquilerEquipos(Servicio):
 
-    def calcular_precio(self):
-        return self.precio * self.unidades
+    # Servicio de alquiler de equipos. Lleva IVA (19 %) por defecto.
+
+    def calcular_precio(self, descuento=0, impuesto=0.19):
+
+        # Precio = (precio x unidades) menos descuento, más IVA.
+
+        self._validar_porcentajes(descuento, impuesto)
+
+        total = self.precio * self.unidades
+        total -= total * descuento
+        return total + total * impuesto
 
 
 class AsesoriasEspecializadas(Servicio):
 
-    def calcular_precio(self):
-        return self.precio * self.unidades
+    # Servicio de asesorías. Permite sumar una tarifa fija opcional.
+
+    def calcular_precio(self, descuento=0, impuesto=0, tarifa_fija=0):
+
+        # Precio = (precio x unidades + tarifa fija) menos descuento, más impuesto.
+
+        self._validar_porcentajes(descuento, impuesto)
+
+        if tarifa_fija < 0:
+            raise ValueError(
+                "La tarifa no debe ser negativa"
+            )
+
+        total = self.precio * self.unidades + tarifa_fija
+        total -= total * descuento
+        return total + total * impuesto
 
 
 class Reserva:
+
+    # Une a un cliente con un servicio en una fecha y hora.
+    # Maneja el estado de la reserva: pendiente, confirmada o cancelada.
 
     def __init__(
         self,
@@ -191,6 +294,9 @@ class Reserva:
         fecha,
         hora,
     ):
+
+        # Guarda los datos de la reserva; siempre inicia como "pendiente".
+
         self.cliente = cliente
         self.servicio = servicio
         self.fecha = fecha
@@ -198,6 +304,8 @@ class Reserva:
         self.estado = "pendiente"
 
     def confirmar_reserva(self):
+
+        # Cambia el estado a "confirmada" y lo registra en el log.
 
         self.estado = "confirmada"
 
@@ -207,16 +315,33 @@ class Reserva:
 
     def cancelar_reserva(self):
 
+        # Cambia el estado a "cancelada" y lo registra en el log.
+
         self.estado = "cancelada"
 
         logging.warning(
             f"Reserva cancelada para {self.cliente.nombre_completo}"
         )
 
-    def calcular_precio_total(self):
-        return self.servicio.calcular_precio()
+    def calcular_precio_total(self, **opciones):
 
-    def mostrar_reserva(self):
+        # Pide al servicio que calcule el precio.
+        # **opciones pasa tal cual lo que reciba (descuento, impuesto,
+        # tarifa_fija) al servicio, sin necesidad de conocerlos.
+
+        return self.servicio.calcular_precio(**opciones)
+
+    def mostrar_reserva(self, **opciones):
+
+        # Devuelve el resumen de la reserva en texto, con el descuento
+        # aplicado, el ahorro y el precio total.
+
+        descuento = opciones.get("descuento", 0)
+
+        # El ahorro es la diferencia entre el precio sin descuento y con descuento
+        sin_descuento = self.calcular_precio_total(**{**opciones, "descuento": 0})
+        con_descuento = self.calcular_precio_total(**opciones)
+        ahorro = sin_descuento - con_descuento
 
         return (
             f"Cliente: {self.cliente.nombre_completo}\n"
@@ -225,23 +350,46 @@ class Reserva:
             f"Fecha: {self.fecha}\n"
             f"Hora: {self.hora}\n"
             f"Estado: {self.estado}\n"
-            f"Precio total: ${self.calcular_precio_total():.2f}"
+            f"Descuento Aplicado: {descuento * 100:g}%\n"
+            f"Ahorro: ${ahorro:.2f}\n"
+            f"Precio total: ${self.calcular_precio_total(**opciones):.2f}"
         )
 
 
+# ==========================================
+# EXCEPCIONES PERSONALIZADAS
+# ==========================================
+
 class IngresoCancelado(Exception):
+
+    # Se lanza cuando el usuario cierra o cancela una ventana de captura.
+
     pass
 
 
 class ReservaInvalidaError(Exception):
+
+    # Se lanza cuando no se puede crear una reserva
+    # (cliente o servicio no registrado).
+
     pass
 
+
+# ==========================================
+# CAPTURA DE DATOS
+# ==========================================
 
 def pedir_dato(
     raiz,
     mensaje,
     validar
 ):
+
+    # Pide un dato al usuario en una ventana y lo repite hasta que sea válido.
+    #   raiz   : ventana principal de tkinter
+    #   mensaje: texto que se muestra al usuario
+    #   validar: función que revisa el dato (lanza ValueError si es incorrecto)
+    # Si el usuario cancela, lanza IngresoCancelado.
 
     while True:
 
@@ -279,7 +427,14 @@ def pedir_dato(
             )
 
 
+# ==========================================
+# FUNCIONES DE VALIDACIÓN
+# Cada una revisa un tipo de dato y lanza ValueError si es incorrecto.
+# ==========================================
+
 def validar_texto(valor):
+
+    # El campo no puede estar vacío.
 
     if not valor:
         raise ValueError(
@@ -287,11 +442,28 @@ def validar_texto(valor):
         )
 
 
+def validar_nombre(valor):
+
+    # Nombres y apellidos: solo letras (se permiten espacios).
+
+    if not valor.replace(" ", "").isalpha():
+        raise ValueError(
+            "Solo se permiten letras (no numeros ni simpbolos)"
+        )
+
+
 def validar_cedula(valor, sistema):
+
+    # Cédula: solo números, mínimo 5 dígitos y que no esté ya registrada.
 
     if not valor.isdigit():
         raise ValueError(
             "La cédula debe contener solo números."
+        )
+
+    if len(valor) < 5:
+        raise ValueError(
+            "La cedula debe tener como minimo 5 digitos"
         )
 
     if any(c.documento == valor for c in sistema.clientes):
@@ -302,13 +474,22 @@ def validar_cedula(valor, sistema):
 
 def validar_telefono(valor):
 
+    # Teléfono: solo números y mínimo 5 dígitos.
+
     if not valor.isdigit():
         raise ValueError(
             "El teléfono debe contener solo números."
         )
 
+    if len(valor) < 5:
+        raise ValueError(
+            "El numero debe tener como minimo 5 digitos"
+        )
+
 
 def validar_email(valor):
+
+    # Correo: debe tener "@" y un punto después del "@".
 
     if "@" not in valor or "." not in valor.split("@")[-1]:
         raise ValueError(
@@ -318,6 +499,8 @@ def validar_email(valor):
 
 def validar_opcion(valor):
 
+    # Tipo de servicio: solo se acepta 1, 2 o 3.
+
     if valor not in ("1", "2", "3"):
         raise ValueError(
             "Seleccione una opción válida."
@@ -325,6 +508,8 @@ def validar_opcion(valor):
 
 
 def validar_precio(valor):
+
+    # Precio: debe ser un número y no puede ser negativo.
 
     try:
 
@@ -345,6 +530,8 @@ def validar_precio(valor):
 
 def validar_unidades(valor):
 
+    # Unidades: debe ser un número entero mayor que cero.
+
     try:
 
         unidades = int(valor)
@@ -362,7 +549,32 @@ def validar_unidades(valor):
         )
 
 
+def validar_descuento(valor):
+
+    # Descuento (en %): debe ser un número entre 0 y 100.
+
+    try:
+
+        descuento = float(valor.replace(",", "."))
+
+    except ValueError as e:
+
+        raise ValueError(
+
+            "Ingrese un descuento numerico valido."
+        ) from e
+
+    if not 0 <= descuento <= 100:
+
+        raise ValueError(
+
+            "El descuento debe tener digitos validos entre 0 y 100"
+        )
+
+
 def validar_fecha(valor):
+
+    # Fecha: debe tener el formato DD/MM/AAAA y ser una fecha real.
 
     try:
         datetime.strptime(valor, "%d/%m/%Y")
@@ -375,6 +587,8 @@ def validar_fecha(valor):
 
 def validar_hora(valor):
 
+    # Hora: debe tener el formato HH:MM y ser una hora real.
+
     try:
         datetime.strptime(valor, "%H:%M")
 
@@ -384,10 +598,23 @@ def validar_hora(valor):
         ) from None
 
 
+# ==========================================
+# PROGRAMA PRINCIPAL
+# ==========================================
+
 def ejecutar_sistema():
 
+    # Flujo completo del programa, paso a paso:
+    #   1. Pide y valida los datos del cliente y lo registra.
+    #   2. Pide el tipo de servicio, su nombre, precio y unidades.
+    #   3. Pide la fecha, la hora y el descuento.
+    #   4. Crea y confirma la reserva.
+    #   5. Muestra el resumen de la reserva.
+    # Si el usuario cancela se muestra un aviso; cualquier otro error
+    # inesperado se muestra y se guarda en el log.
+
     raiz = tk.Tk()
-    raiz.withdraw()
+    raiz.withdraw()  # oculta la ventana principal vacía de tkinter
 
     sistema = SistemaSoftwareFJ()
 
@@ -403,16 +630,17 @@ def ejecutar_sistema():
             parent=raiz,
         )
 
+        # --- Paso 1: datos del cliente ---
         nombre = pedir_dato(
             raiz,
             "Nombre:",
-            validar_texto,
+            validar_nombre,
         )
 
         apellido = pedir_dato(
             raiz,
             "Apellido:",
-            validar_texto,
+            validar_nombre,
         )
 
         identificacion = pedir_dato(
@@ -446,6 +674,8 @@ def ejecutar_sistema():
 
         sistema.agregar_cliente(cliente)
 
+        # --- Paso 2: datos del servicio ---
+        # Diccionario: número de opción -> (nombre del tipo, clase que lo crea)
         tipos_servicio = {
             "1": (
                 "Reserva de salas",
@@ -498,6 +728,7 @@ def ejecutar_sistema():
 
         sistema.agregar_servicio(servicio)
 
+        # --- Paso 3: fecha, hora y descuento ---
         fecha = pedir_dato(
             raiz,
             "Fecha de la reserva (DD/MM/AAAA):",
@@ -510,6 +741,16 @@ def ejecutar_sistema():
             validar_hora,
         )
 
+        descuento = pedir_dato(
+            raiz,
+            "Descuento en % (escriba 0 si no hay):",
+            validar_descuento,
+        )
+
+        # Convierte el porcentaje a decimal (10 -> 0.10)
+        descuento = float(descuento.replace(",", ".")) / 100
+
+        # --- Paso 4: crear y confirmar la reserva ---
         try:
 
             reserva = sistema.crear_reserva(
@@ -541,9 +782,10 @@ def ejecutar_sistema():
                 "Proceso de reserva finalizado."
             )
 
+        # --- Paso 5: mostrar el resumen ---
         messagebox.showinfo(
             "Reserva creada",
-            reserva.mostrar_reserva(),
+            reserva.mostrar_reserva(descuento=descuento),
             parent=raiz,
         )
 
@@ -580,5 +822,9 @@ def ejecutar_sistema():
         raiz.destroy()
 
 
+# ==========================================
+# EJECUCIÓN
+# Solo se ejecuta si corres este archivo directamente (no si lo importas)
+# ==========================================
 if __name__ == "__main__":
     ejecutar_sistema()
