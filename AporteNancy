@@ -186,11 +186,11 @@ class Cliente:
 
 class Servicio(ABC):
 
-    # Clase base que sirve como modelo para los diferentes servicios.
+    # Clase principal que sirve de base para los tipos de servicios.
 
     def __init__(self, nombre_servicio, valor, cantidad=1):
 
-        # Revisión de los datos antes de guardarlos.
+        # Verifica la información del servicio.
 
         if not nombre_servicio.strip():
             raise ValueError(
@@ -209,36 +209,24 @@ class Servicio(ABC):
     @abstractmethod
     def calcular_precio(self, descuento=0, impuesto=0):
 
-        # Método abstracto que será desarrollado por las clases hijas.
-        # Recibe el descuento y el impuesto para calcular el valor final.
+        # Cada clase hija debe implementar su propia forma
+        # de calcular el precio del servicio.
 
         pass
 
     def _validar_porcentajes(self, descuento, impuesto):
 
-        # Comprueba que los porcentajes ingresados sean correctos.
-        # El descuento debe estar entre 0 y 1 y el impuesto no puede ser negativo.
-        # Si no se cumple, genera un error.
+        # Revisa que los valores de descuento e impuesto sean válidos.
 
         if not 0 <= descuento <= 1:
             raise ValueError(
-                "El descuento debe estar entre 0 y 1."
+                "El descuento debe estar entre 0 y 1 (ejemplo: 0.10 = 10%)."
             )
 
         if impuesto < 0:
             raise ValueError(
                 "El impuesto no puede ser negativo."
             )
-
-        if not 0 <= descuento <= 1:
-            raise ValueError(
-                "El debe estar entre 0 y 1 (ej: 0.10 = 10%)."
-            )
-        if impuesto < 0:
-            raise ValueError(
-                "El impuesto no debe ser negativo"
-            )
-
 
 class ReservaSalas(Servicio):
 
